@@ -96,3 +96,14 @@ jobs:
 
       - name: List downloaded artifacts
         run: tree datafusion-java/build/jni_libs
+
+      - name: Publish to Maven Local
+        run: ./gradlew publishToMavenLocal
+
+      - name: Upload built artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: datafusion-java
+          if-no-files-found: error
+          path: ~/.m2/repository/io/github/datafusion-contrib/datafusion-java
+          retention-days: 3

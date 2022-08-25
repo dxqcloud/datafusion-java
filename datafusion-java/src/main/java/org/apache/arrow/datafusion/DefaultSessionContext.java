@@ -1,14 +1,19 @@
 package org.apache.arrow.datafusion;
 
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.nio.channels.Channels;
 import java.nio.file.Path;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
+import org.apache.arrow.vector.VectorSchemaRoot;
+import org.apache.arrow.vector.ipc.ArrowFileWriter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 class DefaultSessionContext extends AbstractProxy implements SessionContext {
 
-  private static final Logger logger = LoggerFactory.getLogger(DefaultSessionContext.class);
+  private static final Logger LOGGER = LoggerFactory.getLogger(DefaultSessionContext.class);
 
   static native void querySql(
       long runtime, long context, String sql, ObjectResultCallback callback);
@@ -18,6 +23,14 @@ class DefaultSessionContext extends AbstractProxy implements SessionContext {
 
   static native void registerParquet(
       long runtime, long context, String name, String path, Consumer<String> callback);
+
+  static native void registerTable(
+      long runtime,
+      long context,
+      String name,
+      byte[] data,
+      Consumer<String> print,
+      Consumer<String> callback);
 
   @Override
   public CompletableFuture<DataFrame> sql(String sql) {
@@ -60,6 +73,32 @@ class DefaultSessionContext extends AbstractProxy implements SessionContext {
         getPointer(),
         name,
         path.toAbsolutePath().toString(),
+        (errMessage) -> voidCallback(future, errMessage));
+    return future;
+  }
+
+  public CompletableFuture<Void> registerTable(String name, VectorSchemaRoot schemaRoot) {
+    long runtime = getRuntime().getPointer();
+    ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+    ArrowFileWriter writer =
+        new ArrowFileWriter(schemaRoot, null, Channels.newChannel(outputStream));
+    try {
+      writer.start();
+      writer.writeBatch();
+      writer.end();
+      writer.close();
+    } catch (IOException e) {
+      e.printStackTrace();
+    }
+    byte[] bytes = outputStream.toByteArray();
+    System.out.println("register_size:" + bytes.length + " row count:" + schemaRoot.getRowCount());
+    CompletableFuture<Void> future = new CompletableFuture<>();
+    registerTable(
+        runtime,
+        getPointer(),
+        name,
+        bytes,
+        (msg -> System.out.println("message from jin: " + msg)),
         (errMessage) -> voidCallback(future, errMessage));
     return future;
   }
