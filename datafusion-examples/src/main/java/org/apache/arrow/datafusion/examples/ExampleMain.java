@@ -1,6 +1,8 @@
 package org.apache.arrow.datafusion.examples;
 
 import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.concurrent.CompletableFuture;
 import org.apache.arrow.datafusion.DataFrame;
@@ -31,13 +33,32 @@ public class ExampleMain {
           .registerParquet(
               "test_parquet", Paths.get("src/main/resources/aggregate_test_100.parquet"))
           .join();
-      context.sql("select * from test_parquet limit 3").thenComposeAsync(DataFrame::show).join();
+      context.sql("select * from test_parquet limit 5").thenComposeAsync(DataFrame::show).join();
 
       context
           .sql("select * from test_csv")
           .thenComposeAsync(df -> df.collect(allocator))
           .thenAccept(ExampleMain::consumeReader)
           .join();
+
+      Path tempPath = Files.createTempDirectory("datafusion-examples");
+
+      context
+          .sql("select * from test_parquet limit 3")
+          .thenComposeAsync(df -> df.writeCsv(tempPath.resolve("csv-out")))
+          .join();
+
+      context
+          .sql("select * from test_parquet limit 3")
+          .thenComposeAsync(df -> df.writeParquet(tempPath.resolve("parquet-out")))
+          .join();
+
+      context
+          .sql("select * from test_parquet limit 3")
+          .thenComposeAsync(df -> df.registerTable(context, "test_parquet_limited"))
+          .join();
+
+      context.sql("select * from test_parquet_limited").thenComposeAsync(DataFrame::show).join();
     }
   }
 
