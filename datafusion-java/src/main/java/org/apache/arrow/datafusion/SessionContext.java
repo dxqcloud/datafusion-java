@@ -18,6 +18,8 @@ public interface SessionContext extends AutoCloseable, NativeProxy {
 
   CompletableFuture<Void> registerTable(String name, VectorSchemaRoot schemaRoot);
 
+  CompletableFuture<Void> deregisterTable(String name);
+
   /** Get the runtime associated with this context */
   Runtime getRuntime();
 }

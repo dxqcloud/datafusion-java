@@ -32,6 +32,9 @@ class DefaultSessionContext extends AbstractProxy implements SessionContext {
       Consumer<String> print,
       Consumer<String> callback);
 
+  static native void deregisterTable(
+      long runtime, long context, String name, Consumer<String> callback);
+
   @Override
   public CompletableFuture<DataFrame> sql(String sql) {
     long runtime = getRuntime().getPointer();
@@ -99,6 +102,17 @@ class DefaultSessionContext extends AbstractProxy implements SessionContext {
         name,
         bytes,
         (msg -> System.out.println("message from jin: " + msg)),
+        (errMessage) -> voidCallback(future, errMessage));
+    return future;
+  }
+
+  public CompletableFuture<Void> deregisterTable(String name) {
+    long runtime = getRuntime().getPointer();
+    CompletableFuture<Void> future = new CompletableFuture<>();
+    deregisterTable(
+        runtime,
+        getPointer(),
+        name,
         (errMessage) -> voidCallback(future, errMessage));
     return future;
   }
